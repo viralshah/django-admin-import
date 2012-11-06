@@ -51,6 +51,7 @@ class ColumnAssignForm(forms.Form):
         self.field_choices = []
         for name, field in self._modelform.fields.items():
             self.field_choices.append((name, field.label))
+        self.field_choices.append((u'pk', u'Id/Primary Key (pk)'))
         self.field_choices.append((u'', u"don't use"))
         super(ColumnAssignForm, self).__init__(*args, **kwargs)
         for i, column in enumerate(self._columns):

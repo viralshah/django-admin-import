@@ -72,10 +72,10 @@ def import_xls_view(self, request):
         if 'PartialForm' in locals() and request.method == 'POST' and '_send_common_data' in request.POST:
             partial_form = PartialForm(request.POST)
             if partial_form.is_valid():
-                import_errors, import_count = do_import(sheet, model_form, request.session['excel_import_assignment'], request.POST)
+                import_errors, import_count = do_import(self, request, sheet, model_form, request.session['excel_import_assignment'], request.POST)
                 if not partial_form.cleaned_data['dry_run'] and not import_errors:
-                    import_errors, import_count = do_import(sheet, model_form, request.session['excel_import_assignment'], request.POST, True)
-                context.update({'import': {'errors': import_errors,
+                    import_errors, import_count = do_import(self, request, sheet, model_form, request.session['excel_import_assignment'], request.POST, True)
+                context.update({'import':{'errors':import_errors,
                                           'count': import_count,
                                           'dry_run': partial_form.cleaned_data['dry_run']}})
         else:
@@ -103,8 +103,7 @@ def add_import(admin, add_button=False):
         setattr(admin, 'changelist_view', decorate_changelist_view(getattr(admin, 'changelist_view')))
         setattr(admin, 'change_list_template', 'admin/excel_import/changelist_view.html')
 
-
-def do_import(sheet, model_form, field_assignment, default_values, commit=False):
+def do_import(self, request, sheet, model_form, field_assignment, default_values, commit=False):
     errors = []
     count = 0
     form_instance = model_form()
@@ -113,7 +112,7 @@ def do_import(sheet, model_form, field_assignment, default_values, commit=False)
     forward_choices = {}
     reverse_choices = {}
     for k, v in field_assignment.items():
-        field = form_instance.fields[v]
+        field = form_instance.fields.get(v, None)
         if hasattr(field, 'choices'):
             forward_choices[k] = choice_dict = dict(field.choices)
             reverse_choices[k] = dict((r[1], r[0]) for r in choice_dict.items())
@@ -124,7 +123,6 @@ def do_import(sheet, model_form, field_assignment, default_values, commit=False)
         values = sheet.row_values(i)
 
         for k, v in field_assignment.items():
-            field = form_instance.fields[v]
             value = values[int(k)]
 
             # Normalize values a little bit -- this is necessary because when
@@ -138,7 +136,7 @@ def do_import(sheet, model_form, field_assignment, default_values, commit=False)
 
             if k in forward_choices:
                 if value in forward_choices[k]:
-                    pass  # Ok.
+                    pass # Ok.
                 else:
                     if value in reverse_choices[k]:
                         value = reverse_choices[k][value]
@@ -152,7 +150,14 @@ def do_import(sheet, model_form, field_assignment, default_values, commit=False)
 
             data[v] = value
 
-        form = model_form(data)
+        pk = data.get('pk', None)
+        if pk:
+            #update
+            form = model_form(data, instance=self.get_object(request, pk))
+        else:
+            #insert
+            form = model_form(data)
+
         if form.is_valid():
             if commit:
                 form.save()
