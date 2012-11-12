@@ -28,6 +28,7 @@ setup(
     ],
     requires=[
         'Django(>=1.3)',
+        'xlrd(>=0.8.0)'
     ],
     include_package_data=True,
 )
